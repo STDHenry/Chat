@@ -118,10 +118,11 @@
     </div>
 
     <script>
-      const SUPABASE_URL = "https://accvbywalbbkowbwuspd.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjY3ZieXdhbGJia293Ynd1c3BkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNDAxODEsImV4cCI6MjA5ODkxNjE4MX0.nEO-vUgQ_E_-cSw6rpEcgv7O9mIfIMsfWZCbB5UCau8";
-
+              // --- 1. THÔNG TIN KẾT NỐI API ĐÁM MÂY SUPABASE ---
+        const SUPABASE_URL = "https://accvbywalbbkowbwuspd.supabase.co"; 
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjY3ZieXdhbGJia293Ynd1c3BkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNDAxODEsImV4cCI6MjA5ODkxNjE4MX0.nEO-vUgQ_E_-cSw6rpEcgv7O9mIfIMsfWZCbB5UCau8";
         
+        // SỬA TẠI ĐÂY: Đổi chữ supabaseClient thành supabase.createClient
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let LOGGED_IN_USER = "";
