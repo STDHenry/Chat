@@ -117,29 +117,33 @@
         </form>
     </div>
 
+        <!-- JAVASCRIPT ĐỒNG BỘ REALTIME QUA SUPABASE -->
     <script>
-              // --- 1. THÔNG TIN KẾT NỐI API ĐÁM MÂY SUPABASE ---
+        // --- 1. THÔNG TIN KẾT NỐI API ĐÁM MÂY SUPABASE ---
         const SUPABASE_URL = "https://accvbywalbbkowbwuspd.supabase.co"; 
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjY3ZieXdhbGJia293Ynd1c3BkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNDAxODEsImV4cCI6MjA5ODkxNjE4MX0.nEO-vUgQ_E_-cSw6rpEcgv7O9mIfIMsfWZCbB5UCau8";
         
-        // SỬA TẠI ĐÂY: Đổi chữ supabaseClient thành supabase.createClient
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // ĐỔI TÊN BIẾN THÀNH clientDB ĐỂ TRÁNH LỖI XUNG ĐỘT KHỞI TẠO VỚI THƯ VIỆN GỐC
+        const clientDB = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let LOGGED_IN_USER = "";
-        let IS_ADMIN = false;
 
-        // Hàm ẩn hiện luân phiên giữa 2 form Đăng ký / Đăng nhập
         function toggleAuthView(showRegister) {
             document.getElementById("loginFormBox").style.display = showRegister ? "none" : "block";
             document.getElementById("registerFormBox").style.display = showRegister ? "block" : "none";
         }
 
-                     // ==========================================
-        // HÀM XỬ LÝ ĐĂNG KÝ VÀ ĐĂNG NHẬP CHUẨN XÁC 100%
+        function logout() {
+            LOGGED_IN_USER = "";
+            document.getElementById("authOverlay").style.display = "flex";
+            document.getElementById("chatMessagesArea").innerHTML = "";
+        }
+
+        // ==========================================
+        // 2. LOGIC XỬ LÝ ĐĂNG KÝ VÀ ĐĂNG NHẬP CHUẨN XÁC
         // ==========================================
         async function handleAuth(type) {
             try {
-                // Xác định đúng ô nhập liệu dựa trên hành động Click
                 const userField = type === 'login' ? 'loginUser' : 'regUser';
                 const pwdField = type === 'login' ? 'loginPwd' : 'regPwd';
                 
@@ -152,8 +156,8 @@
                 }
 
                 if (type === 'register') {
-                    // 1. Quét xem tài khoản này đã được ai đăng ký trước đó chưa
-                    const { data: existingUser, error: checkError } = await supabase
+                    // Quét xem tài khoản đã tồn tại chưa bằng biến kết nối clientDB mới
+                    const { data: existingUser, error: checkError } = await clientDB
                         .from('chat_users')
                         .select('username')
                         .eq('username', username);
@@ -163,8 +167,8 @@
                         return;
                     }
 
-                    // 2. Ghi bản ghi tài khoản mới tinh lên đám mây Supabase
-                    const { error: insertError } = await supabase
+                    // Ghi bản ghi tài khoản mới
+                    const { error: insertError } = await clientDB
                         .from('chat_users')
                         .insert([{ username: username, password: password }]);
 
@@ -177,21 +181,20 @@
                     }
 
                 } else if (type === 'login') {
-                    // 3. Tiến hành kiểm tra thông tin tài khoản mật khẩu
-                    const { data: users, error: loginError } = await supabase
+                    // Xác thực đăng nhập
+                    const { data: users, error: loginError } = await clientDB
                         .from('chat_users')
                         .select('*')
                         .eq('username', username)
                         .eq('password', password);
 
-                    // SỬA CHÍNH XÁC TẠI ĐÂY: Bổ sung ký tự gọi mảng [0] để bốc đúng dữ liệu dòng đầu tiên
                     if (!loginError && users && users.length > 0) {
+                        // Bốc chính xác phần tử mảng đầu tiên
                         LOGGED_IN_USER = users[0].username; 
                         
                         document.getElementById("headerProfileName").innerText = LOGGED_IN_USER;
-                        document.getElementById("authOverlay").style.display = "none"; // Mở khóa màn hình vào phòng chat luôn
+                        document.getElementById("authOverlay").style.display = "none"; // Vào phòng chat
                         
-                        // Kích hoạt nạp lịch sử cuộc trò chuyện vĩnh viễn và mở đường truyền nghe Realtime
                         fetchChatHistory();
                         initRealtimeListen();
                     } else {
@@ -199,11 +202,126 @@
                     }
                 }
             } catch (err) {
-                alert("Hệ thống gặp sự cố mạng hoặc gõ sai link CDN: " + err.message);
+                alert("Hệ thống gặp sự cố: " + err.message);
             }
         }
 
+        // ==========================================
+        // 3. TẢI LỊCH SỬ TRÒ CHUYỆN VĨNH VIỄN TỪ CLOUD
+        // ==========================================
+        async function fetchChatHistory() {
+            const { data: messages, error } = await clientDB
+                .from('chat_messages')
+                .select('*')
+                .order('created_at', { ascending: true });
 
+            if (!error && messages) {
+                const area = document.getElementById("chatMessagesArea");
+                area.innerHTML = ""; 
+                messages.forEach(msg => appendMessageToUI(msg));
+                scrollToBottom();
+            }
+        }
+
+        // ==========================================
+        // 4. THUẬT TOÁN ĐỒ HỌA VẼ TIN NHÂN & NÚT THU HỒI
+        // ==========================================
+        function appendMessageToUI(msgObj) {
+            const area = document.getElementById("chatMessagesArea");
+            if (document.getElementById(`msg-block-${msgObj.id}`)) return; // Chống trùng lặp
+            
+            const isMe = (msgObj.sender === LOGGED_IN_USER);
+
+            const wrapper = document.createElement("div");
+            wrapper.className = `message-wrapper ${isMe ? 'msg-me' : 'msg-other'}`;
+            wrapper.id = `msg-block-${msgObj.id}`;
+
+            const nameLabel = document.createElement("div");
+            nameLabel.className = "sender-name";
+            nameLabel.innerText = isMe ? "Bạn" : msgObj.sender;
+
+            const bubble = document.createElement("div");
+            bubble.className = `bubble ${isMe ? 'bubble-me' : 'bubble-other'}`;
+            bubble.innerText = msgObj.message;
+
+            const meta = document.createElement("div");
+            meta.className = `msg-time ${isMe ? 'time-me' : ''}`;
+            const timeString = new Date(msgObj.created_at).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' });
+            meta.innerText = timeString;
+
+            // Nếu mình là chủ sở hữu tin nhắn, gắn thêm nút [Thu hồi] chuẩn Zalo
+            if (isMe) {
+                const recallLink = document.createElement("span");
+                recallLink.className = "delete-text-btn";
+                recallLink.innerText = " [Thu hồi]";
+                recallLink.style.color = "#718096";
+                recallLink.onclick = () => recallMessageFromCloud(msgObj.id);
+                meta.appendChild(recallLink);
+            }
+
+            if (!isMe) wrapper.appendChild(nameLabel);
+            wrapper.appendChild(bubble);
+            wrapper.appendChild(meta);
+            area.appendChild(wrapper);
+        }
+
+        // ==========================================
+        // 5. LỆNH ĐẨY TIN NHẮN MỚI LÊN MÁY CHỦ
+        // ==========================================
+        async function submitMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById("msgInput");
+            const text = input.value.trim();
+            if (text === "") return;
+
+            input.value = ""; 
+
+            const { error } = await clientDB
+                .from('chat_messages')
+                .insert([{ sender: LOGGED_IN_USER, message: text }]);
+                
+            if (error) console.error("Lỗi gửi tin nhắn:", error.message);
+        }
+
+        // ==========================================
+        // 6. KÍCH HOẠT ĐƯỜNG TRUYỀN WEBSOCKETS REALTIME
+        // ==========================================
+        function initRealtimeListen() {
+            clientDB
+                .channel('room_total') 
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, payload => {
+                    if (payload.eventType === 'INSERT') {
+                        appendMessageToUI(payload.new);
+                        scrollToBottom();
+                    }
+                    if (payload.eventType === 'DELETE') {
+                        const targetBlock = document.getElementById(`msg-block-${payload.old.id}`);
+                        if (targetBlock) targetBlock.remove();
+                    }
+                })
+                .subscribe();
+        }
+
+        // ==========================================
+        // 7. LỆNH THU HỒI TIN NHẮN CHỈ ÁP DỤNG CHO CHÍNH CHỦ
+        // ==========================================
+        async function recallMessageFromCloud(msgId) {
+            const confirmDelete = confirm("Bạn có chắc chắn muốn thu hồi tin nhắn cá nhân này không?");
+            if (confirmDelete) {
+                const { error } = await clientDB
+                    .from('chat_messages')
+                    .delete()
+                    .eq('id', msgId);
+                    
+                if (error) alert("Lỗi khi thực hiện thu hồi: " + error.message);
+            }
+        }
+
+        function scrollToBottom() {
+            const area = document.getElementById("chatMessagesArea");
+            area.scrollTop = area.scrollHeight;
+        }
     </script>
+
 </body>
 </html>
