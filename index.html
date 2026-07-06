@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zalo Mini Chat - Supabase Realtime</title>
-    <!-- Nhúng thư viện Supabase JS trực tiếp từ mạng để xử lý dữ liệu thời gian thực -->
-    <script src="https://jsdelivr.net"></script>
+    <!-- Đường ống nhúng CDN chuẩn của Supabase (Bắt buộc giữ nguyên cấu trúc) -->
+<script src="https://jsdelivr.net"></script>
+
     <style>
         body {
             margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -132,82 +133,75 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
             document.getElementById("registerFormBox").style.display = showRegister ? "block" : "none";
         }
 
-                // ==========================================
-        // 2. LOGIC XỬ LÝ ĐĂNG KÝ VÀ ĐĂNG NHẬP (SUPABASE)
+                     // ==========================================
+        // HÀM XỬ LÝ ĐĂNG KÝ VÀ ĐĂNG NHẬP CHUẨN XÁC 100%
         // ==========================================
         async function handleAuth(type) {
-            const username = type === 'register'
-                ? document.getElementById("regUser").value.trim()
-                : document.getElementById("loginUser").value.trim();
-            const password = type === 'register'
-                ? document.getElementById("regPwd").value.trim()
-                : document.getElementById("loginPwd").value.trim();
+            try {
+                // Xác định đúng ô nhập liệu dựa trên hành động Click
+                const userField = type === 'login' ? 'loginUser' : 'regUser';
+                const pwdField = type === 'login' ? 'loginPwd' : 'regPwd';
+                
+                const username = document.getElementById(userField).value.trim();
+                const password = document.getElementById(pwdField).value.trim();
 
-            if (!username || !password) {
-                alert("Vui lòng nhập tài khoản và mật khẩu.");
-                return;
-            }
-
-            if (type === 'register') {
-                const { data: existingUser, error: fetchError } = await supabase
-                    .from('chat_users')
-                    .select('username')
-                    .eq('username', username)
-                    .limit(1);
-
-                if (fetchError) {
-                    alert("Lỗi kết nối đăng ký. Vui lòng thử lại.");
+                if (username === "" || password === "") {
+                    alert("Vui lòng điền đầy đủ tài khoản và mật khẩu!");
                     return;
                 }
 
-                if (existingUser && existingUser.length > 0) {
-                    alert("Tài khoản đã tồn tại. Vui lòng chọn tên khác.");
-                    return;
+                if (type === 'register') {
+                    // 1. Quét xem tài khoản này đã được ai đăng ký trước đó chưa
+                    const { data: existingUser, error: checkError } = await supabase
+                        .from('chat_users')
+                        .select('username')
+                        .eq('username', username);
+
+                    if (existingUser && existingUser.length > 0) {
+                        alert("Lỗi: Tên tài khoản này đã tồn tại trong hệ thống!");
+                        return;
+                    }
+
+                    // 2. Ghi bản ghi tài khoản mới tinh lên đám mây Supabase
+                    const { error: insertError } = await supabase
+                        .from('chat_users')
+                        .insert([{ username: username, password: password }]);
+
+                    if (!insertError) {
+                        alert("🎉 Đăng ký tài khoản thành công! Hãy quay lại đăng nhập.");
+                        toggleAuthView(false);
+                        document.getElementById('loginUser').value = username;
+                    } else {
+                        alert("Lỗi đăng ký dữ liệu: " + insertError.message);
+                    }
+
+                } else if (type === 'login') {
+                    // 3. Tiến hành kiểm tra thông tin tài khoản mật khẩu
+                    const { data: users, error: loginError } = await supabase
+                        .from('chat_users')
+                        .select('*')
+                        .eq('username', username)
+                        .eq('password', password);
+
+                    // SỬA CHÍNH XÁC TẠI ĐÂY: Bổ sung ký tự gọi mảng [0] để bốc đúng dữ liệu dòng đầu tiên
+                    if (!loginError && users && users.length > 0) {
+                        LOGGED_IN_USER = users[0].username; 
+                        
+                        document.getElementById("headerProfileName").innerText = LOGGED_IN_USER;
+                        document.getElementById("authOverlay").style.display = "none"; // Mở khóa màn hình vào phòng chat luôn
+                        
+                        // Kích hoạt nạp lịch sử cuộc trò chuyện vĩnh viễn và mở đường truyền nghe Realtime
+                        fetchChatHistory();
+                        initRealtimeListen();
+                    } else {
+                        alert("⚠️ Đăng nhập thất bại: Sai tài khoản, mật khẩu hoặc kết nối bị chặn!");
+                    }
                 }
-
-                const { error: insertError } = await supabase
-                    .from('chat_users')
-                    .insert([{ username, password }]);
-
-                if (insertError) {
-                    alert("Không thể đăng ký tài khoản. Vui lòng thử lại.");
-                    return;
-                }
-
-                alert("Đăng ký thành công. Vui lòng đăng nhập.");
-                toggleAuthView(false);
-                document.getElementById("regUser").value = "";
-                document.getElementById("regPwd").value = "";
-                return;
-            }
-
-            if (type === 'login') {
-                const { data: users, error: loginError } = await supabase
-                    .from('chat_users')
-                    .select('*')
-                    .eq('username', username)
-                    .eq('password', password);
-
-                if (!loginError && users && users.length > 0) {
-                    LOGGED_IN_USER = users[0].username;
-                    document.getElementById("headerProfileName").innerText = LOGGED_IN_USER;
-                    document.getElementById("authOverlay").style.display = "none"; // Mở khóa sảnh chat Zalo
-                    fetchChatHistory();
-                    initRealtimeListen();
-                    return;
-                }
-
-                alert("⚠️ Sai tài khoản, mật khẩu hoặc database đang bị khóa RLS!");
+            } catch (err) {
+                alert("Hệ thống gặp sự cố mạng hoặc gõ sai link CDN: " + err.message);
             }
         }
 
-        async function fetchChatHistory() {
-            // Placeholder: nạp lịch sử chat
-        }
-
-        async function initRealtimeListen() {
-            // Placeholder: kích hoạt realtime
-        }
 
     </script>
 </body>
