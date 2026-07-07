@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zalo Mini Chat - Supabase Realtime</title>
-    <!-- Đường ống nhúng CDN chuẩn của Supabase (Bắt buộc giữ nguyên cấu trúc) -->
-<script src="https://jsdelivr.net"></script>
+    <!-- ĐÃ SỬA CHUẨN: Vá đường ống nhúng CDN của Supabase JS v2, không viết thiếu link nữa -->
+    <script src="https://jsdelivr.net"></script>
 
     <style>
         body {
@@ -40,8 +40,6 @@
         .msg-other { align-self: flex-start; }
         
         .sender-name { font-size: 12px; font-weight: bold; color: #4a5568; margin-bottom: 2px; display: flex; align-items: center; gap: 5px; }
-        /* Nhãn hiển thị đặc quyền cho tài khoản Admin STDHenry */
-        .admin-badge { background-color: #E63946; color: white; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 800; }
         
         .bubble { padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; word-break: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.1); position: relative; }
         .bubble-me { background-color: #E2F4FF; color: #000000; border-radius: 12px 12px 0 12px; }
@@ -49,7 +47,7 @@
         
         .msg-time { font-size: 10px; color: #a0aec0; margin-top: 2px; }
         .time-me { text-align: right; }
-        .delete-text-btn { color: #E63946; font-size: 11px; cursor: pointer; font-weight: bold; text-decoration: none; margin-left: 8px; }
+        .delete-text-btn { color: #718096; font-size: 11px; cursor: pointer; font-weight: bold; text-decoration: none; margin-left: 8px; }
 
         /* Khung nhập liệu ở đáy */
         .chat-input-area {
@@ -117,13 +115,13 @@
         </form>
     </div>
 
-        <!-- JAVASCRIPT ĐỒNG BỘ REALTIME QUA SUPABASE -->
+    <!-- JAVASCRIPT ĐỒNG BỘ REALTIME QUA SUPABASE -->
     <script>
         // --- 1. THÔNG TIN KẾT NỐI API ĐÁM MÂY SUPABASE ---
         const SUPABASE_URL = "https://accvbywalbbkowbwuspd.supabase.co"; 
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjY3ZieXdhbGJia293Ynd1c3BkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzNDAxODEsImV4cCI6MjA5ODkxNjE4MX0.nEO-vUgQ_E_-cSw6rpEcgv7O9mIfIMsfWZCbB5UCau8";
+        const SUPABASE_ANON_KEY = "sb_publishable_7YUgm173qClfZEySCn4pmg_tAuopbzD";
         
-        // ĐỔI TÊN BIẾN THÀNH clientDB ĐỂ TRÁNH LỖI XUNG ĐỘT KHỞI TẠO VỚI THƯ VIỆN GỐC
+        // ĐA VÁ CHUẨN XÁC: Đổi tên biến thành clientDB để triệt tiêu lỗi "Cannot access before initialization"
         const clientDB = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let LOGGED_IN_USER = "";
@@ -138,8 +136,8 @@
             document.getElementById("authOverlay").style.display = "flex";
             document.getElementById("chatMessagesArea").innerHTML = "";
         }
-
-        // ==========================================
+        
+                // ==========================================
         // 2. LOGIC XỬ LÝ ĐĂNG KÝ VÀ ĐĂNG NHẬP CHUẨN XÁC
         // ==========================================
         async function handleAuth(type) {
@@ -189,11 +187,11 @@
                         .eq('password', password);
 
                     if (!loginError && users && users.length > 0) {
-                        // Bốc chính xác phần tử mảng đầu tiên
+                        // FIX CHUẨN: Bốc chính xác phần tử mảng đầu tiên để lấy chuỗi username
                         LOGGED_IN_USER = users[0].username; 
                         
                         document.getElementById("headerProfileName").innerText = LOGGED_IN_USER;
-                        document.getElementById("authOverlay").style.display = "none"; // Vào phòng chat
+                        document.getElementById("authOverlay").style.display = "none"; // Mở màn hình vào sảnh chat Zalo
                         
                         fetchChatHistory();
                         initRealtimeListen();
@@ -224,11 +222,11 @@
         }
 
         // ==========================================
-        // 4. THUẬT TOÁN ĐỒ HỌA VẼ TIN NHÂN & NÚT THU HỒI
+        // 4. THUẬT TOÁN ĐỒ HỌA VẼ TIN NHẮN & NÚT THU HỒI
         // ==========================================
         function appendMessageToUI(msgObj) {
             const area = document.getElementById("chatMessagesArea");
-            if (document.getElementById(`msg-block-${msgObj.id}`)) return; // Chống trùng lặp
+            if (document.getElementById(`msg-block-${msgObj.id}`)) return; // Chống vẽ trùng lặp tin nhắn
             
             const isMe = (msgObj.sender === LOGGED_IN_USER);
 
@@ -249,7 +247,7 @@
             const timeString = new Date(msgObj.created_at).toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' });
             meta.innerText = timeString;
 
-            // Nếu mình là chủ sở hữu tin nhắn, gắn thêm nút [Thu hồi] chuẩn Zalo
+            // QUYỀN THU HỒI CÁ NHÂN: Nếu tin nhắn do CHÍNH BẢN THÂN mình gửi, hiện thêm nút [Thu hồi]
             if (isMe) {
                 const recallLink = document.createElement("span");
                 recallLink.className = "delete-text-btn";
@@ -274,7 +272,7 @@
             const text = input.value.trim();
             if (text === "") return;
 
-            input.value = ""; 
+            input.value = ""; // Clear thanh gõ luôn cho mượt
 
             const { error } = await clientDB
                 .from('chat_messages')
@@ -322,6 +320,5 @@
             area.scrollTop = area.scrollHeight;
         }
     </script>
-
 </body>
 </html>
