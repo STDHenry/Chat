@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zalo Mini Chat - Supabase Realtime</title>
-    <!-- ĐÃ SỬA CHUẨN: Vá đường ống nhúng CDN của Supabase JS v2, không viết thiếu link nữa -->
-    <script src="https://jsdelivr.net"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/supabase.min.js"></script>
+    
     <style>
         body {
             margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -121,8 +120,9 @@
         const SUPABASE_URL = "https://accvbywalbbkowbwuspd.supabase.co"; 
         const SUPABASE_ANON_KEY = "sb_publishable_7YUgm173qClfZEySCn4pmg_tAuopbzD";
         
-        // ĐA VÁ CHUẨN XÁC: Đổi tên biến thành clientDB để triệt tiêu lỗi "Cannot access before initialization"
-        const clientDB = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        if (!window.clientDB) {
+            window.clientDB = supabase.createClient('YOUR_SUPABASE_URL', 'YOUR_SUPABASE_ANON_KEY');
+        }
 
         let LOGGED_IN_USER = "";
 
